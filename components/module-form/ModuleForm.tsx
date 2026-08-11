@@ -134,9 +134,12 @@ export function ModuleForm({ module, refillKey, onCommit, onPin }: ModuleFormPro
               key={g}
               className="sect"
               open={open[g]}
-              onToggle={(e) =>
-                setOpen((o) => ({ ...o, [g]: (e.currentTarget as HTMLDetailsElement).open }))
-              }
+              onToggle={(e) => {
+                // Read during the handler: React clears `currentTarget` once it
+                // returns, and the updater below runs after that.
+                const isOpen = (e.currentTarget as HTMLDetailsElement).open;
+                setOpen((o) => ({ ...o, [g]: isOpen }));
+              }}
             >
               <summary>{isGroup(spec) ? spec.title : g}</summary>
               <div className="fields">
