@@ -5,7 +5,9 @@ import type { Module } from '@/lib/modules-store';
 import { ModuleList } from './ModuleList';
 import { ModuleForm } from './module-form/ModuleForm';
 
-export type IoKind = '' | 'dirty' | 'ok' | 'err';
+// There is no 'dirty': every edit is in the store by the time it is on screen,
+// so the only states left are working, done and failed.
+export type IoKind = '' | 'ok' | 'err';
 
 export interface ModulePanelProps {
   modules: Module[];
@@ -25,7 +27,9 @@ export interface ModulePanelProps {
   onScannerVisible: (visible: boolean) => void;
   onAdd: () => void;
   onDelete: () => void;
-  onSave: () => void;
+  /** Write the store out to modules.json. Not a save — every edit is already
+   *  stored by the time it is on screen. */
+  onExport: () => void;
   onReload: () => void;
 }
 
@@ -98,7 +102,7 @@ export function ModulePanel(props: ModulePanelProps) {
     onScannerVisible,
     onAdd,
     onDelete,
-    onSave,
+    onExport,
     onReload,
   } = props;
 
@@ -164,18 +168,21 @@ export function ModulePanel(props: ModulePanelProps) {
           </button>
         </div>
 
+        {/* No Save: an edit is in the store before it finishes animating. What
+            is left is a snapshot of that store as a readable file, and a way to
+            re-read it if the two ever drift. */}
         <div className="acts">
-          <button type="button" onClick={onSave} disabled={busy}>
-            Save
+          <button type="button" onClick={onExport} disabled={busy} title="Write modules.json">
+            Export
           </button>
           <button type="button" className="ghost" onClick={onReload} disabled={busy}>
             Reload
           </button>
         </div>
 
-        {/* modules.json read/write status. Doubles as the fatal-error surface,
-            since a black canvas with no explanation is the worst way to report
-            a bad file. */}
+        {/* Store read/write status. Doubles as the fatal-error surface, since a
+            black canvas with no explanation is the worst way to report that
+            nothing could be loaded. */}
         <div id="io" className={io.kind}>
           {io.text}
         </div>

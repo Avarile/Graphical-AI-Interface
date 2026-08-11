@@ -1,23 +1,31 @@
 'use client';
 
-// The client root: React owns the module list, the scene owns the WebGL, and
-// this is the seam between them.
+// The client root: React owns the module list, the scene owns the WebGL, the
+// database owns the truth, and this is the seam between all three.
 //
 // Every edit goes through one of addModule / removeModule / replaceModule, on
-// both sides at once — the scene keeps its own mirror of the list because its
-// operations are indexed and surgical, and React keeps one because that is what
-// the panel renders from. Anything that changes the data updates both here, so
-// there is exactly one place they could fall out of step rather than a dozen.
+// three sides at once — the scene keeps its own mirror of the list because its
+// operations are indexed and surgical, React keeps one because that is what the
+// panel renders from, and each change is sent to /api/modules as it happens.
+// Anything that changes the data updates all three here, so there is exactly one
+// place they could fall out of step rather than a dozen.
+//
+// There is no save step. Writes are per-module and queued in the order they were
+// asked for (see lib/modules/client.ts), so there is no unsaved work to lose and
+// nothing to confirm on the way out. The one thing that still writes a file is
+// Export, which is a snapshot of the store rather than the store itself.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   blankModule,
+  createModule,
+  deleteModule,
   download,
+  exportToFile,
   loadModules,
   normalize,
-  saveModules,
+  saveModule,
   uniqueId,
-  verify,
   type Module,
 } from '@/lib/modules-store';
 import { STATUS, STATUS_KEYS } from '@/lib/status';
@@ -46,28 +54,17 @@ export default function MainframeApp() {
   const [modules, setModules] = useState<Module[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [io, setIoState] = useState<{ text: string; kind: IoKind }>({
-    text: 'Reading modules.json…',
+    text: 'Reading the module store…',
     kind: '',
   });
-  const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [refillKey, setRefillKey] = useState(0);
   const [scannerVisible, setScannerVisible] = useState(true);
 
-  // How many entries the last read could not use. `modules` is then a subset of
-  // the file, and saving would write the rest out of existence — so this
-  // survives until the next read and gates the save behind a confirmation.
-  const [skippedOnLoad, setSkippedOnLoad] = useState(0);
-
   const setIo = useCallback((text: string, kind: IoKind = '') => {
     setIoState({ text, kind });
   }, []);
-
-  const markDirty = useCallback(() => {
-    setDirty(true);
-    setIo('Unsaved changes', 'dirty');
-  }, [setIo]);
 
   /** Refill every control from the module — the revert path, and the
    *  confirmation after a successful edit. */
@@ -75,8 +72,44 @@ export default function MainframeApp() {
 
   // The console API and the effect callbacks need whatever is current, not
   // whatever was current when they were created.
-  const live = useRef({ modules, selected, dirty, skippedOnLoad });
-  live.current = { modules, selected, dirty, skippedOnLoad };
+  const live = useRef({ modules, selected });
+  live.current = { modules, selected };
+
+  /** Change the list on both sides at once.
+   *
+   *  The ref is updated here rather than waiting for the next render, because
+   *  two edits can land in the same tick: two clicks on Add would otherwise both
+   *  read the same list, pick the same free id, and send two POSTs the second of
+   *  which the server has to refuse. */
+  const applyModules = useCallback((update: (ms: Module[]) => Module[]) => {
+    const next = update(live.current.modules);
+    live.current.modules = next;
+    setModules(next);
+  }, []);
+
+  /** Send one change to the store and say how it went.
+   *
+   *  The page has already applied the change by the time this runs — the scene
+   *  animates immediately and waiting on a round trip would show as lag. So a
+   *  failure here means the page is ahead of the store, and the message says so
+   *  rather than pretending the edit did not happen. */
+  const persist = useCallback(
+    (what: string, run: () => Promise<unknown>) => {
+      setIo('Saving…', '');
+      run().then(
+        () => setIo('Saved · ' + new Date().toLocaleTimeString(), 'ok'),
+        (err: Error) => {
+          console.error(err);
+          setIo(
+            'could not ' + what + ': ' + err.message +
+              ' — the page is ahead of the store; Reload to resync',
+            'err',
+          );
+        },
+      );
+    },
+    [setIo],
+  );
 
   /** Ids currently in use, optionally ignoring one entry — the module being
    *  renamed should not collide with itself. */
@@ -90,13 +123,11 @@ export default function MainframeApp() {
 
   /* ---- reading ---- */
 
-  const readFile = useCallback(async () => {
+  const readStore = useCallback(async () => {
     const { modules: read, warnings, skipped, migrated } = await loadModules({
       statuses: STATUS_KEYS,
     });
-    setSkippedOnLoad(skipped);
-    setDirty(false);
-    for (const w of warnings) console.warn('modules.json:', w);
+    for (const w of warnings) console.warn('module store:', w);
 
     if (skipped) {
       setIo(
@@ -104,11 +135,7 @@ export default function MainframeApp() {
         'err',
       );
     } else if (migrated) {
-      // Worth saying out loud: the next save changes the file's format.
-      setIo(
-        read.length + ' modules loaded from a version 1 file — saving rewrites it as version 2',
-        'dirty',
-      );
+      setIo(read.length + ' modules loaded from a version 1 record', 'ok');
     } else if (warnings.length) {
       setIo(
         warnings.length + ' warning' + (warnings.length === 1 ? '' : 's') + ': ' + warnings[0],
@@ -146,7 +173,7 @@ export default function MainframeApp() {
 
       let read: Module[] = [];
       try {
-        read = await readFile();
+        read = await readStore();
       } catch (err) {
         // Nothing to draw and no way to recover — say so where the list would be.
         setIo(String((err as Error).message), 'err');
@@ -171,7 +198,7 @@ export default function MainframeApp() {
       sceneRef.current = null;
       stageRef.current = null;
     };
-  }, [readFile, setIo]);
+  }, [readStore, setIo]);
 
   /* ---- edits ---- */
 
@@ -193,13 +220,14 @@ export default function MainframeApp() {
       }
       const prev = scene.colorOfIndex(i);
       scene.replaceModule(i, module);
-      setModules((ms) => ms.map((m, j) => (j === i ? module : m)));
-      markDirty();
+      applyModules((ms) => ms.map((m, j) => (j === i ? module : m)));
       refill();
       scene.flashUpdate(i, prev);
+      // Addressed by the id it is stored under, which an edit may be changing.
+      persist('save ' + cur.id, () => saveModule(cur.id, module));
       return true;
     },
-    [markDirty, refill, setIo, takenIds],
+    [applyModules, persist, refill, setIo, takenIds],
   );
 
   const onCommit = useCallback(
@@ -220,17 +248,17 @@ export default function MainframeApp() {
         const unlocked = structuredClone(cur);
         unlocked.layout.locked = false;
         scene.replaceModule(i, unlocked);
-        setModules((ms) => ms.map((m, j) => (j === i ? unlocked : m)));
-        markDirty();
+        applyModules((ms) => ms.map((m, j) => (j === i ? unlocked : m)));
         refill();
+        persist('unlock ' + cur.id, () => saveModule(cur.id, unlocked));
         return;
       }
 
-      // No validation is repeated here: whatever the loader would refuse, the
+      // No validation is repeated here: whatever the store would refuse, the
       // form refuses too, in the same words, because it is the same code.
       commitAt(i, candidate);
     },
-    [commitAt, markDirty, refill, setIo],
+    [applyModules, commitAt, persist, refill, setIo],
   );
 
   const onSelect = useCallback(
@@ -264,30 +292,31 @@ export default function MainframeApp() {
     const mod = blankModule(uniqueId('new-module', takenIds()), 'init');
     const i = live.current.modules.length;
     scene.addModule(mod);
-    setModules((ms) => [...ms, mod]);
+    applyModules((ms) => [...ms, mod]);
     setSelected(i);
     scene.setSelected(i);
-    markDirty();
     refill();
     // Initializing: blink, then ease up out of nothing.
     scene.startAppear(i);
-  }, [markDirty, refill, takenIds]);
+    persist('add ' + mod.id, () => createModule(mod));
+  }, [applyModules, persist, refill, takenIds]);
 
   const onDelete = useCallback(() => {
     const scene = sceneRef.current;
     const i = live.current.selected;
     if (i == null || !scene || scene.isRemoving) return;
+    const { id } = live.current.modules[i];
     // Blink out, fade away, and only then drop the module — unmounting first
     // would destroy the very objects the effect is animating.
     const started = scene.startRemove(i, () => {
       scene.removeModule(i);
-      setModules((ms) => ms.filter((_, j) => j !== i));
+      applyModules((ms) => ms.filter((_, j) => j !== i));
       setSelected(null);
       setRemoving(false);
-      markDirty();
+      persist('delete ' + id, () => deleteModule(id));
     });
     if (started) setRemoving(true);
-  }, [markDirty]);
+  }, [applyModules, persist]);
 
   const onPin = useCallback(() => {
     const i = live.current.selected;
@@ -306,14 +335,11 @@ export default function MainframeApp() {
     sceneRef.current?.setScannerVisible(visible);
   }, []);
 
-  /* ---- modules.json read/write ---- */
-  // Saving is explicit. Edits are fiddly and continuous — a strip's arc gets
-  // nudged a dozen times before it looks right — and writing the file on each
-  // keystroke would bury the version worth keeping.
+  /* ---- store-level actions ---- */
 
   // A ref, not the `busy` state, because the guard has to hold within a single
   // tick: setBusy() does not land until the next render, so two calls in the
-  // same tick would both read `false` and both start writing. The buttons are
+  // same tick would both read `false` and both start working. The buttons are
   // disabled while busy, but saveToFile() from the console is not.
   const busyRef = useRef(false);
 
@@ -336,57 +362,16 @@ export default function MainframeApp() {
     [setIo],
   );
 
-  const onSave = useCallback(() => {
-    void withBusy('Saving…', async () => {
-      const list = live.current.modules;
-      // Bad rows are not a transport problem, so they are caught before the
-      // write is attempted — there is no point handing the user a broken file
-      // to install by hand, which is what the fallback below would do.
-      const problems = verify(list, { statuses: STATUS_KEYS });
-      if (problems.length) {
-        for (const p of problems) console.warn('modules.json:', p);
-        throw new Error(
-          problems.length +
-            ' invalid module' +
-            (problems.length === 1 ? '' : 's') +
-            ': ' +
-            problems[0],
-        );
-      }
-
-      // The file still holds entries this session could not read. Saving
-      // replaces it with what is on screen, so this is the moment they are
-      // lost for good.
-      const skipped = live.current.skippedOnLoad;
-      if (skipped > 0) {
-        const one = skipped === 1;
-        const ok = window.confirm(
-          skipped +
-            (one ? ' entry was' : ' entries were') +
-            ' skipped when modules.json was read — see the console for which.\n\n' +
-            'Saving writes only the ' +
-            list.length +
-            ' module' +
-            (list.length === 1 ? '' : 's') +
-            ' shown here, deleting ' +
-            (one ? 'that entry' : 'those entries') +
-            ' permanently.\n\nSave anyway?',
-        );
-        if (!ok) {
-          setIo('Save cancelled — modules.json untouched', '');
-          return;
-        }
-      }
-
+  /** Write the store out to modules.json — a snapshot, not a save. Everything
+   *  on screen is already stored; this is the readable, committable copy. */
+  const onExport = useCallback(() => {
+    void withBusy('Exporting…', async () => {
       try {
-        const n = await saveModules(list, { statuses: STATUS_KEYS });
-        setDirty(false);
-        // Whatever was skipped is genuinely gone now; stop warning about it.
-        setSkippedOnLoad(0);
-        setIo('Saved ' + n + ' modules · ' + new Date().toLocaleTimeString(), 'ok');
+        const n = await exportToFile();
+        setIo('Exported ' + n + ' modules to modules.json · ' + new Date().toLocaleTimeString(), 'ok');
       } catch (err) {
         // Read-only host: still let the work out, as a file to drop in by hand.
-        download(list);
+        download(live.current.modules);
         throw new Error((err as Error).message + ' — downloaded modules.json instead');
       }
     });
@@ -395,23 +380,20 @@ export default function MainframeApp() {
   const onReload = useCallback(() => {
     const scene = sceneRef.current;
     if (scene?.isRemoving) return;
-    if (live.current.dirty && !window.confirm('Discard unsaved changes and re-read modules.json?')) {
-      return;
-    }
     void withBusy('Reading…', async () => {
-      // Rebuild everything from the file, discarding whatever is on screen.
+      // Rebuild everything from the store, discarding whatever is on screen.
       // Runtime state goes with it: these are no longer the modules those
       // phases belonged to.
-      const read = await readFile();
+      const read = await readStore();
       setSelected(null);
-      setModules(read);
+      applyModules(() => read);
       sceneRef.current?.setModules(read);
       refill();
     });
-  }, [readFile, refill, withBusy]);
+  }, [applyModules, readStore, refill, withBusy]);
 
   /* ---- console API ---- */
-  //   listModules()                              ids, in file order
+  //   listModules()                              ids, in store order
   //   getModule('db-ledger')                     a copy, safe to poke at
   //   setStatus('db-ledger', 'running')
   //   setField('db-ledger', 'appearance.color', '#3E8CF0')
@@ -420,7 +402,8 @@ export default function MainframeApp() {
   //   saveToFile() · reloadModules()
   //
   // Everything goes through the same validate-then-replace path the panel uses,
-  // so a bad value from the console is refused rather than corrupting the list.
+  // so a bad value from the console is refused rather than corrupting the list,
+  // and is written to the store the same way an edit in the panel is.
 
   useEffect(() => {
     const indexOfId = (id: string) => {
@@ -466,8 +449,8 @@ export default function MainframeApp() {
       return id + ' ' + path + ' = ' + JSON.stringify(value);
     };
 
-    // Freeze a module where it currently sits, so a save reproduces this exact
-    // arrangement instead of rolling a fresh random angle on the next load.
+    // Freeze a module where it currently sits, so a reload reproduces this exact
+    // arrangement instead of rolling a fresh random angle.
     window.pinPhase = (id) => {
       const i = indexOfId(id);
       const scene = sceneRef.current;
@@ -490,24 +473,13 @@ export default function MainframeApp() {
   }, [commitAt]);
 
   useEffect(() => {
-    window.saveToFile = onSave;
+    window.saveToFile = onExport;
     window.reloadModules = onReload;
     return () => {
       delete window.saveToFile;
       delete window.reloadModules;
     };
-  }, [onSave, onReload]);
-
-  // Losing a session of layout work to a stray refresh is not worth the silence.
-  useEffect(() => {
-    if (!dirty) return;
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [dirty]);
+  }, [onExport, onReload]);
 
   return (
     <>
@@ -528,7 +500,7 @@ export default function MainframeApp() {
         onScannerVisible={onScannerVisible}
         onAdd={onAdd}
         onDelete={onDelete}
-        onSave={onSave}
+        onExport={onExport}
         onReload={onReload}
       />
     </>

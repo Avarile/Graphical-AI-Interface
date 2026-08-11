@@ -426,9 +426,6 @@ body {
   color: #c2c6c0;
   min-height: 15px;
 }
-#io.dirty {
-  color: #e4a025;
-}
 #io.ok {
   color: #2fcb6a;
 }

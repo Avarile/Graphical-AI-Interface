@@ -7,3 +7,10 @@ next-env.d.ts
 .env*.local
 .DS_Store
 .vercel
+
+# The SQLite store. modules.json stays in the repo — it seeds a fresh database
+# and is what Export writes back out — but the database itself is local state.
+/data/
+*.db
+*.db-wal
+*.db-shm
