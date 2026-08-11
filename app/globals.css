@@ -1,0 +1,440 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #dbdbdb;
+  overflow: hidden;
+}
+
+/* The stage was a custom element with a shadow root; it is a plain container
+   with the canvas inside it now, so the two rules that used to live in the
+   element's own stylesheet — the canvas reset and the controls hint — sit here
+   with everything else. */
+.stage {
+  position: relative;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: #000000;
+  overflow: hidden;
+}
+.stage canvas {
+  display: block;
+  outline: none;
+}
+.stage-note {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  max-width: 60%;
+  font: 400 12px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: rgba(26, 25, 21, 0.55);
+  user-select: none;
+}
+
+.hud {
+  position: fixed;
+  left: 28px;
+  top: 26px;
+  z-index: 5;
+  pointer-events: none;
+  font-family: "Futura PT", system-ui, sans-serif;
+  color: #f4dc75;
+}
+.hud .eyebrow {
+  /* Unitless and therefore inert — the browser drops this declaration and the
+     heading keeps its default size. Carried over as-is so the port does not
+     silently restyle the HUD; giving it a unit is a visual change, not a fix. */
+  font-size: 18;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #c2c6c0;
+  margin-bottom: 20px;
+}
+.hud h1 {
+  margin: 6px 0 18px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.legend {
+  display: grid;
+  gap: 8px;
+}
+.legend div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c2c6c0;
+}
+.legend i {
+  width: 22px;
+  height: 4px;
+  display: block;
+}
+
+.panel {
+  position: fixed;
+  right: 24px;
+  top: 26px;
+  bottom: 88px;
+  width: 268px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: "Futura PT", system-ui, sans-serif;
+  color: #fff;
+  background: rgba(10, 10, 10, 0.72);
+  border: 1px solid rgba(194, 198, 192, 0.22);
+  border-radius: 6px;
+  padding: 16px;
+  backdrop-filter: blur(6px);
+  transition: transform 0.26s ease;
+}
+/* Drawer: parked off the right edge until asked for. Translating rather than
+   hiding keeps the panel laid out, so its scroll position and focus survive. */
+.panel.closed {
+  transform: translateX(calc(100% + 24px));
+  pointer-events: none;
+}
+/* The handle rides the drawer's edge — one control, both directions. */
+#drawer-tab {
+  position: fixed;
+  right: 326px;
+  top: 50%;
+  z-index: 7;
+  transform: translateY(-50%);
+  cursor: pointer;
+  padding: 16px 7px;
+  border-radius: 6px 0 0 6px;
+  border: 1px solid rgba(194, 198, 192, 0.22);
+  border-right: 0;
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(6px);
+  font: inherit;
+  font-family: "Futura PT", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ddb54f;
+  transition: right 0.26s ease;
+}
+#drawer-tab:hover {
+  color: #f4dc75;
+  background: rgba(20, 20, 20, 0.85);
+}
+.panel.closed ~ #drawer-tab {
+  right: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  #drawer-tab {
+    transition: none;
+  }
+}
+.panel .head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.panel .head b {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.panel .head span {
+  font-size: 11px;
+  color: #c2c6c0;
+  letter-spacing: 0.08em;
+}
+#mod-list {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -6px;
+  padding: 0 6px;
+}
+.mod {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #c2c6c0;
+  font: inherit;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+}
+.mod span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mod:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.mod.on {
+  background: rgba(221, 181, 79, 0.16);
+  color: #f4dc75;
+}
+.mod i {
+  width: 14px;
+  height: 3px;
+  flex: none;
+}
+/* A hidden module still lists, so you can find it again to unhide it. */
+.mod.off {
+  opacity: 0.45;
+}
+.mod.off span {
+  text-decoration: line-through;
+}
+.mod.nosel {
+  font-style: italic;
+}
+.mod .lock {
+  margin-left: auto;
+  font-size: 9px;
+  color: #ddb54f;
+  flex: none;
+}
+/* meta.group headings, emitted only once any module declares a group. */
+.grp {
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8b8f8a;
+  padding: 8px 8px 3px;
+  position: sticky;
+  top: 0;
+  background: rgba(10, 10, 10, 0.92);
+}
+/* The form is generated, so these rules describe field shapes rather than
+   named controls: one collapsible section per schema group.
+
+   It is `display: block` rather than the old `display: none`. The page used to
+   keep one form in the document and toggle its visibility; the form is now
+   mounted only while a module is picked, so there is nothing to hide. */
+#mod-form {
+  display: block;
+  overflow-y: auto;
+  max-height: 46vh;
+  border-top: 1px solid rgba(194, 198, 192, 0.2);
+  padding-top: 10px;
+  margin: 0 -4px;
+  padding-right: 4px;
+  padding-left: 4px;
+}
+#mod-form .fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+#mod-form .sect {
+  margin-top: 8px;
+  border-top: 1px solid rgba(194, 198, 192, 0.12);
+}
+#mod-form .sect > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 7px 0 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ddb54f;
+}
+#mod-form .sect > summary::-webkit-details-marker {
+  display: none;
+}
+#mod-form .sect > summary::before {
+  content: "+ ";
+  color: #8b8f8a;
+}
+#mod-form .sect[open] > summary::before {
+  content: "– ";
+}
+#mod-form .sect > summary:hover {
+  color: #f4dc75;
+}
+#mod-form .fld {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c2c6c0;
+}
+#mod-form .fld.wide {
+  grid-column: 1 / -1;
+}
+/* Toggles read better as caption-after-box, on one line. */
+#mod-form .fld.row {
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+#mod-form .fld.row .cap {
+  flex: 1;
+}
+#mod-form .ctl {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+}
+#mod-form input,
+#mod-form select,
+#mod-form textarea {
+  min-width: 0;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(194, 198, 192, 0.24);
+  border-radius: 4px;
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 7px;
+  letter-spacing: 0.02em;
+}
+#mod-form textarea {
+  resize: vertical;
+  font-size: 11.5px;
+}
+#mod-form input[type="checkbox"] {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  accent-color: #e4a025;
+}
+#mod-form input[type="color"] {
+  flex: none;
+  width: 34px;
+  padding: 2px;
+  cursor: pointer;
+}
+#mod-form .swatch,
+#mod-form .withbtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+#mod-form .withbtn button {
+  flex: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(194, 198, 192, 0.35);
+  background: none;
+  color: #c2c6c0;
+}
+#mod-form .withbtn button:hover:not(:disabled) {
+  color: #f4dc75;
+  border-color: #ddb54f;
+}
+#mod-form input:focus,
+#mod-form select:focus,
+#mod-form textarea:focus {
+  outline: none;
+  border-color: #ddb54f;
+}
+#mod-form select option {
+  background: #111;
+}
+#mod-form :disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.panel .toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c2c6c0;
+  cursor: pointer;
+}
+.panel .toggle input {
+  accent-color: #e4a025;
+  width: 13px;
+  height: 13px;
+}
+.acts {
+  display: flex;
+  gap: 8px;
+}
+.acts button {
+  flex: 1;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ddb54f;
+  background: #ddb54f;
+  color: #000;
+  font-weight: 700;
+}
+.acts button.ghost {
+  background: none;
+  color: #c2c6c0;
+  border-color: rgba(194, 198, 192, 0.35);
+}
+.acts button:hover {
+  filter: brightness(1.08);
+}
+.acts button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  filter: none;
+}
+/* modules.json read/write status */
+#io {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  color: #c2c6c0;
+  min-height: 15px;
+}
+#io.dirty {
+  color: #e4a025;
+}
+#io.ok {
+  color: #2fcb6a;
+}
+#io.err {
+  color: #e0342b;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 10.5px;
+}

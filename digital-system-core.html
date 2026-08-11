@@ -1,0 +1,1844 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mainframe</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+          "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+          "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+          "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+        },
+        "integrity": {
+          "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+          "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+          "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+          "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+          "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="_ds/aaron-sansoni-design-system-f71563f5-c431-4f2a-b4ca-285616f74737/tokens/fonts.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #dbdbdb;
+        overflow: hidden;
+      }
+      three-d-stage:not(:defined) {
+        visibility: hidden;
+      }
+      three-d-stage {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      .hud {
+        position: fixed;
+        left: 28px;
+        top: 26px;
+        z-index: 5;
+        pointer-events: none;
+        font-family: "Futura PT", system-ui, sans-serif;
+        color: #f4dc75;
+      }
+      .hud .eyebrow {
+        font-size: 18;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #c2c6c0;
+        margin-bottom: 20px;
+      }
+      .hud h1 {
+        margin: 6px 0 18px;
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #fff;
+      }
+      .legend {
+        display: grid;
+        gap: 8px;
+      }
+      .legend div {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #c2c6c0;
+      }
+      .legend i {
+        width: 22px;
+        height: 4px;
+        display: block;
+      }
+      .panel {
+        position: fixed;
+        right: 24px;
+        top: 26px;
+        bottom: 88px;
+        width: 268px;
+        z-index: 6;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        font-family: "Futura PT", system-ui, sans-serif;
+        color: #fff;
+        background: rgba(10, 10, 10, 0.72);
+        border: 1px solid rgba(194, 198, 192, 0.22);
+        border-radius: 6px;
+        padding: 16px;
+        backdrop-filter: blur(6px);
+        transition: transform 0.26s ease;
+      }
+      /* Drawer: parked off the right edge until asked for. Translating rather than
+     hiding keeps the panel laid out, so its scroll position and focus survive. */
+      .panel.closed {
+        transform: translateX(calc(100% + 24px));
+        pointer-events: none;
+      }
+      /* The handle rides the drawer's edge — one control, both directions. */
+      #drawer-tab {
+        position: fixed;
+        right: 326px;
+        top: 50%;
+        z-index: 7;
+        transform: translateY(-50%);
+        cursor: pointer;
+        padding: 16px 7px;
+        border-radius: 6px 0 0 6px;
+        border: 1px solid rgba(194, 198, 192, 0.22);
+        border-right: 0;
+        background: rgba(10, 10, 10, 0.72);
+        backdrop-filter: blur(6px);
+        font: inherit;
+        font-family: "Futura PT", system-ui, sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        color: #ddb54f;
+        transition: right 0.26s ease;
+      }
+      #drawer-tab:hover {
+        color: #f4dc75;
+        background: rgba(20, 20, 20, 0.85);
+      }
+      .panel.closed ~ #drawer-tab {
+        right: 0;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .panel,
+        #drawer-tab {
+          transition: none;
+        }
+      }
+      .panel .head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+      }
+      .panel .head b {
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+      .panel .head span {
+        font-size: 11px;
+        color: #c2c6c0;
+        letter-spacing: 0.08em;
+      }
+      #mod-list {
+        flex: 1;
+        min-height: 120px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 0 -6px;
+        padding: 0 6px;
+      }
+      .mod {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        text-align: left;
+        cursor: pointer;
+        background: none;
+        border: 0;
+        border-radius: 4px;
+        padding: 6px 8px;
+        color: #c2c6c0;
+        font: inherit;
+        font-size: 12.5px;
+        letter-spacing: 0.03em;
+      }
+      .mod span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mod:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: #fff;
+      }
+      .mod.on {
+        background: rgba(221, 181, 79, 0.16);
+        color: #f4dc75;
+      }
+      .mod i {
+        width: 14px;
+        height: 3px;
+        flex: none;
+      }
+      /* A hidden module still lists, so you can find it again to unhide it. */
+      .mod.off {
+        opacity: 0.45;
+      }
+      .mod.off span {
+        text-decoration: line-through;
+      }
+      .mod.nosel {
+        font-style: italic;
+      }
+      .mod .lock {
+        margin-left: auto;
+        font-size: 9px;
+        color: #ddb54f;
+        flex: none;
+      }
+      /* meta.group headings, emitted only once any module declares a group. */
+      .grp {
+        font-size: 8.5px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #8b8f8a;
+        padding: 8px 8px 3px;
+        position: sticky;
+        top: 0;
+        background: rgba(10, 10, 10, 0.92);
+      }
+      /* The form is generated, so these rules describe field shapes rather than
+         named controls: one collapsible section per schema group. */
+      #mod-form {
+        display: none;
+        overflow-y: auto;
+        max-height: 46vh;
+        border-top: 1px solid rgba(194, 198, 192, 0.2);
+        padding-top: 10px;
+        margin: 0 -4px;
+        padding-right: 4px;
+        padding-left: 4px;
+      }
+      #mod-form .fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+      }
+      #mod-form .sect {
+        margin-top: 8px;
+        border-top: 1px solid rgba(194, 198, 192, 0.12);
+      }
+      #mod-form .sect > summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 7px 0 6px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #ddb54f;
+      }
+      #mod-form .sect > summary::-webkit-details-marker {
+        display: none;
+      }
+      #mod-form .sect > summary::before {
+        content: "+ ";
+        color: #8b8f8a;
+      }
+      #mod-form .sect[open] > summary::before {
+        content: "– ";
+      }
+      #mod-form .sect > summary:hover {
+        color: #f4dc75;
+      }
+      #mod-form .fld {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+        font-size: 9.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #c2c6c0;
+      }
+      #mod-form .fld.wide {
+        grid-column: 1 / -1;
+      }
+      /* Toggles read better as caption-after-box, on one line. */
+      #mod-form .fld.row {
+        flex-direction: row-reverse;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 7px;
+      }
+      #mod-form .fld.row .cap {
+        flex: 1;
+      }
+      #mod-form .ctl {
+        display: flex;
+        gap: 5px;
+        min-width: 0;
+      }
+      #mod-form input,
+      #mod-form select,
+      #mod-form textarea {
+        min-width: 0;
+        flex: 1;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(194, 198, 192, 0.24);
+        border-radius: 4px;
+        color: #fff;
+        font: inherit;
+        font-size: 12.5px;
+        padding: 5px 7px;
+        letter-spacing: 0.02em;
+      }
+      #mod-form textarea {
+        resize: vertical;
+        font-size: 11.5px;
+      }
+      #mod-form input[type="checkbox"] {
+        flex: none;
+        width: 13px;
+        height: 13px;
+        padding: 0;
+        accent-color: #e4a025;
+      }
+      #mod-form input[type="color"] {
+        flex: none;
+        width: 34px;
+        padding: 2px;
+        cursor: pointer;
+      }
+      #mod-form .swatch,
+      #mod-form .withbtn {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex: 1;
+        min-width: 0;
+      }
+      #mod-form .withbtn button {
+        flex: none;
+        cursor: pointer;
+        font: inherit;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 5px 6px;
+        border-radius: 4px;
+        border: 1px solid rgba(194, 198, 192, 0.35);
+        background: none;
+        color: #c2c6c0;
+      }
+      #mod-form .withbtn button:hover:not(:disabled) {
+        color: #f4dc75;
+        border-color: #ddb54f;
+      }
+      #mod-form input:focus,
+      #mod-form select:focus,
+      #mod-form textarea:focus {
+        outline: none;
+        border-color: #ddb54f;
+      }
+      #mod-form select option {
+        background: #111;
+      }
+      #mod-form :disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .panel .toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #c2c6c0;
+        cursor: pointer;
+      }
+      .panel .toggle input {
+        accent-color: #e4a025;
+        width: 13px;
+        height: 13px;
+      }
+      .acts {
+        display: flex;
+        gap: 8px;
+      }
+      .acts button {
+        flex: 1;
+        cursor: pointer;
+        font: inherit;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ddb54f;
+        background: #ddb54f;
+        color: #000;
+        font-weight: 700;
+      }
+      .acts button.ghost {
+        background: none;
+        color: #c2c6c0;
+        border-color: rgba(194, 198, 192, 0.35);
+      }
+      .acts button:hover {
+        filter: brightness(1.08);
+      }
+      .acts button:disabled {
+        opacity: 0.4;
+        cursor: default;
+        filter: none;
+      }
+      /* modules.json read/write status */
+      #io {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        line-height: 1.5;
+        color: #c2c6c0;
+        min-height: 15px;
+      }
+      #io.dirty {
+        color: #e4a025;
+      }
+      #io.ok {
+        color: #2fcb6a;
+      }
+      #io.err {
+        color: #e0342b;
+        text-transform: none;
+        letter-spacing: 0.01em;
+        font-size: 10.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hud">
+      <h4 class="eyebrow">Mainframe</h4>
+      <div class="legend">
+        <div><i style="background: #e4a025"></i>Running</div>
+        <div><i style="background: #e0342b"></i>Fault</div>
+        <div><i style="background: #2fcb6a"></i>Initializing</div>
+        <div><i style="background: #3e8cf0"></i>Loading data</div>
+      </div>
+    </div>
+
+    <div class="panel closed" id="mod-panel">
+      <div class="head"><b>Modules</b><span id="count"></span></div>
+      <div id="mod-list"></div>
+      <!-- Filled in by script from the schema in modules-store.js. Declaring a field
+           there is all it takes to get a control here, so there is deliberately no
+           markup to fall out of step. -->
+      <div id="mod-form"></div>
+      <label class="toggle"><input id="f-scanner" type="checkbox" checked />Scanner view</label>
+      <div class="acts">
+        <button type="button" id="add">Add module</button>
+        <button type="button" id="del" class="ghost">Delete</button>
+      </div>
+      <div class="acts">
+        <button type="button" id="save">Save</button>
+        <button type="button" id="reload" class="ghost">Reload</button>
+      </div>
+      <div id="io">Reading modules.json…</div>
+    </div>
+    <button type="button" id="drawer-tab" aria-controls="mod-panel" aria-expanded="false" aria-label="Show modules panel">&lt;</button>
+
+    <three-d-stage name="digital-system-core" background="#000000"></three-d-stage>
+    <script src="./three-d-stage.js"></script>
+    <script type="module">
+      import { loadModules, saveModules, download, uniqueId, verify, normalize, blankModule, displayName, bandText, SPEC, GROUPS } from "./modules-store.js";
+
+      const stage = document.querySelector("three-d-stage");
+      const { THREE } = await stage.ready;
+
+      // Darker studio: this object reads as emissive light bands on black.
+      stage._scene.background = new THREE.Color(0x000000);
+      stage._ground.material.opacity = 0.0;
+
+      const STATUS = {
+        running: { color: 0xe4a025, hex: "#E4A025", name: "running", gain: 0.62 },
+        fault: { color: 0xe0342b, hex: "#E0342B", name: "fault" },
+        init: { color: 0x2fcb6a, hex: "#2FCB6A", name: "initializing" },
+        loading: { color: 0x3e8cf0, hex: "#3E8CF0", name: "loading" },
+      };
+
+      /* ---- materials ---- */
+      // Shared by appearance rather than by module. Two modules with the same status
+      // and no overrides get one material between them, so the common case still
+      // costs one of each kind; a per-module colour or opacity gets its own entry,
+      // keyed by the values that produced it.
+      //
+      // Everything is registered in one map because the selection dimming pass has
+      // to reach every always-on material, and with overrides in play there is no
+      // longer a fixed set of four to reach for.
+      const matReg = new Map();
+
+      const MAT_KINDS = {
+        band: (c, o, gain) => ({
+          color: 0x0a0a0a,
+          emissive: c,
+          emissiveIntensity: 1.9 * gain,
+          roughness: 0.5,
+          metalness: 0.0,
+          side: THREE.DoubleSide,
+          // Left opaque unless asked otherwise: transparency costs a sorting pass.
+          transparent: o != null,
+          opacity: o == null ? 1 : o,
+        }),
+        glow: (c, o) => ({
+          color: 0x000000,
+          emissive: c,
+          emissiveIntensity: 1.6,
+          transparent: true,
+          opacity: (o == null ? 1 : o) * 0.16,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+        }),
+        halo: (c, o) => ({
+          color: 0x000000,
+          emissive: c,
+          emissiveIntensity: 1.6,
+          transparent: true,
+          opacity: (o == null ? 1 : o) * 0.055,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+        }),
+        // Selection overlays. Kept out of the dimming pass below: they are the
+        // thing being emphasised, so brightening the rest would defeat them.
+        hot: (c) => ({
+          color: 0x000000,
+          emissive: c,
+          emissiveIntensity: 3.2,
+          transparent: true,
+          opacity: 0.85,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+        }),
+        mark: (c) => ({
+          color: 0x000000,
+          emissive: c,
+          emissiveIntensity: 2.6,
+          transparent: true,
+          opacity: 0.8,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+        }),
+      };
+
+      const DIMMABLE = new Set(["band", "glow", "halo"]);
+
+      function material(kind, colorHex, opacity, gain) {
+        const key = kind + "|" + colorHex + "|" + (opacity == null ? "auto" : opacity) + "|" + gain;
+        let mat = matReg.get(key);
+        if (mat) return mat;
+        mat = new THREE.MeshStandardMaterial(MAT_KINDS[kind](colorHex, opacity, gain));
+        mat.name = kind + "-" + colorHex.toString(16).padStart(6, "0");
+        // The dimming pass scales from this, so it has to be remembered before
+        // anything touches emissiveIntensity.
+        mat.userData.kind = kind;
+        mat.userData.baseEmissive = mat.emissiveIntensity;
+        mat.userData.baseOpacity = mat.transparent ? mat.opacity : null;
+        mat.userData.dimmable = DIMMABLE.has(kind);
+        matReg.set(key, mat);
+        return mat;
+      }
+
+      // The colour a module actually renders in: its own override, else its status.
+      function colorOf(m) {
+        return m.appearance.color ? new THREE.Color(m.appearance.color).getHex() : STATUS[m.status].color;
+      }
+
+      // Every material one module needs, resolved once per mount. Only the band
+      // carries the per-status gain, so the others key on 1 and stay shared.
+      function matsFor(m) {
+        const c = colorOf(m);
+        const o = m.appearance.opacity;
+        return {
+          band: material("band", c, o, STATUS[m.status].gain || 1),
+          glow: material("glow", c, o, 1),
+          halo: material("halo", c, o, 1),
+          hot: material("hot", c, null, 1),
+          mark: material("mark", c, null, 1),
+        };
+      }
+
+      // Which module the panel has picked. applyHighlight() runs inside the mount
+      // operations below, so this has to exist before the first build.
+      let selected = null;
+
+      const coreMat = new THREE.MeshStandardMaterial({ name: "core-shell", color: 0x0b0b0c, roughness: 0.4, metalness: 0.3, transparent: true, opacity: 0.16, depthWrite: false });
+      const spineMat = new THREE.MeshStandardMaterial({ name: "spine", color: 0x0a0908, emissive: 0xbb9244, emissiveIntensity: 0.08, roughness: 0.7, metalness: 0.2 });
+
+      /* ---- module definitions ---- */
+      // The list lives in modules.json, not here. Each entry is the nested object
+      // modules-store.js describes in SPEC — id and label, plus geometry, motion,
+      // appearance, layout, meta, links and telemetry groups — and that file is the
+      // only thing that knows the file's shape or validates it.
+      //
+      // Mutated in place for the rest of the page's life: every closure below closes
+      // over this one array, so a reload refills it rather than rebinding it.
+      const MODULES = [];
+      const ioEl = document.getElementById("io");
+
+      // The panel's one status line. Doubles as the fatal-error surface, since a
+      // black canvas with no explanation is the worst way to report a bad file.
+      function setIo(text, kind) {
+        ioEl.className = kind || "";
+        ioEl.textContent = text;
+      }
+
+      let dirty = false;
+
+      // How many entries the last read could not use. MODULES is then a subset of the
+      // file, and saving would write the rest out of existence — so this survives
+      // until the next read and gates the save behind a confirmation.
+      let skippedOnLoad = 0;
+
+      function markDirty() {
+        dirty = true;
+        setIo("Unsaved changes", "dirty");
+      }
+
+      // Read the file into MODULES. Throws upward; callers decide how loud to be.
+      async function readFile() {
+        const { modules, warnings, skipped, migrated } = await loadModules({ statuses: Object.keys(STATUS) });
+        MODULES.length = 0;
+        for (const m of modules) MODULES.push(m);
+        dirty = false;
+        skippedOnLoad = skipped;
+        for (const w of warnings) console.warn("modules.json:", w);
+        if (skipped) {
+          setIo(skipped + " entr" + (skipped === 1 ? "y" : "ies") + " skipped: " + warnings[0], "err");
+        } else if (migrated) {
+          // Worth saying out loud: the next save changes the file's format.
+          setIo(modules.length + " modules loaded from a version 1 file — saving rewrites it as version 2", "dirty");
+        } else if (warnings.length) {
+          setIo(warnings.length + " warning" + (warnings.length === 1 ? "" : "s") + ": " + warnings[0], "err");
+        } else {
+          setIo(modules.length + " modules loaded");
+        }
+        return modules.length;
+      }
+
+      // Ids currently in use, optionally ignoring one entry — the module being
+      // renamed should not collide with itself.
+      function takenIds(exceptIndex) {
+        const taken = new Set();
+        MODULES.forEach((m, i) => {
+          if (i !== exceptIndex) taken.add(m.id);
+        });
+        return taken;
+      }
+
+      try {
+        await readFile();
+      } catch (err) {
+        // Nothing to draw and no way to recover — say so where the list would be.
+        setIo(String(err.message), "err");
+        document.getElementById("mod-list").textContent = "";
+        throw err;
+      }
+
+      const model = new THREE.Group();
+      model.name = "digital-system-core";
+
+      // Central mainframe column + faint containment shell.
+      const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 3.1, 20), spineMat);
+      spine.name = "mainframe-spine";
+      model.add(spine);
+
+      const shell = new THREE.Mesh(new THREE.CylinderGeometry(1.24, 1.24, 3.0, 64, 1, true), coreMat);
+      shell.name = "containment-shell";
+      model.add(shell);
+
+      for (const cap of [
+        [1.55, "cap-top"],
+        [-1.55, "cap-base"],
+      ]) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.24, 0.01, 10, 96), spineMat);
+        ring.name = cap[1];
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = cap[0];
+        model.add(ring);
+      }
+
+      /* ---- Scanner view: flat sensor plane pinned under the mainframe ---- */
+      const SCAN_Y = -1.86,
+        SCAN_R = 3.3;
+
+      const plateMat = new THREE.MeshStandardMaterial({
+        name: "scanner-plate",
+        color: 0x04121f,
+        emissive: 0x0b3459,
+        emissiveIntensity: 0.55,
+        roughness: 0.9,
+        metalness: 0.0,
+        transparent: true,
+        opacity: 0.34,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const gridMat = new THREE.MeshStandardMaterial({
+        name: "scanner-grid",
+        color: 0x000000,
+        emissive: 0x5fa9e6,
+        emissiveIntensity: 1.1,
+        transparent: true,
+        opacity: 0.42,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const rimMat = new THREE.MeshStandardMaterial({
+        name: "scanner-rim",
+        color: 0x000000,
+        emissive: 0x8fc7f2,
+        emissiveIntensity: 1.5,
+        transparent: true,
+        opacity: 0.75,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+
+      const scanner = new THREE.Group();
+      scanner.name = "scanner-view";
+      scanner.position.y = SCAN_Y;
+      model.add(scanner);
+
+      function flat(mesh) {
+        mesh.rotation.x = -Math.PI / 2;
+        return mesh;
+      }
+
+      const plate = flat(new THREE.Mesh(new THREE.CircleGeometry(SCAN_R, 128), plateMat));
+      plate.name = "scanner-plate";
+      scanner.add(plate);
+
+      const rim = flat(new THREE.Mesh(new THREE.RingGeometry(SCAN_R - 0.012, SCAN_R, 160), rimMat));
+      rim.name = "scanner-rim";
+      scanner.add(rim);
+
+      [0.34, 0.58, 0.79].forEach((f, i) => {
+        const r = SCAN_R * f;
+        const ring = flat(new THREE.Mesh(new THREE.RingGeometry(r - 0.006, r + 0.006, 128), gridMat));
+        ring.name = "scanner-ring-" + (i + 1);
+        scanner.add(ring);
+      });
+
+      for (let i = 0; i < 4; i++) {
+        const spoke = flat(new THREE.Mesh(new THREE.PlaneGeometry(0.007, SCAN_R * 2), gridMat));
+        spoke.name = "scanner-axis-" + (i + 1);
+        spoke.rotation.z = (i * Math.PI) / 4;
+        scanner.add(spoke);
+      }
+
+      for (let i = 0; i < 36; i++) {
+        const cardinal = i % 9 === 0;
+        const len = cardinal ? 0.2 : 0.1;
+        const tick = flat(new THREE.Mesh(new THREE.PlaneGeometry(cardinal ? 0.016 : 0.008, len), rimMat));
+        tick.name = "scanner-tick-" + (i + 1);
+        const a = (i / 36) * Math.PI * 2;
+        tick.position.set(Math.sin(a) * (SCAN_R - len / 2), 0, Math.cos(a) * (SCAN_R - len / 2));
+        tick.rotation.z = -a;
+        scanner.add(tick);
+      }
+
+      // Sweep needle, rotating like a radar arm.
+      const sweep = flat(new THREE.Mesh(new THREE.CircleGeometry(SCAN_R * 0.995, 48, 0, 0.42), plateMat.clone()));
+      sweep.name = "scanner-sweep";
+      sweep.material.name = "scanner-sweep";
+      sweep.material.emissive = new THREE.Color(0x7fbef0);
+      sweep.material.emissiveIntensity = 1.0;
+      sweep.material.opacity = 0.1;
+      scanner.add(sweep);
+      const sweepPivot = sweep;
+
+      const contacts = [];
+
+      /* ---- per-module runtime state ---- */
+      // State that has to outlive the meshes. Rebuilding a strip throws its Object3D
+      // away, so anything derived at construction time — the spin phase, the scanner
+      // lane — has to be held here or it silently resets. Kept in an array spliced in
+      // lockstep with MODULES.
+      const runtime = [];
+      let laneSeq = 0;
+
+      // motion.phase and motion.lane are the saved versions of these two. A number
+      // there pins the value so a saved arrangement reloads exactly as it was left;
+      // null means "choose one now", which is what every module did before those
+      // fields existed.
+      function newRuntime(m) {
+        const phase = m && m.motion.phase != null ? m.motion.phase : Math.random() * Math.PI * 2;
+        const lane = m && m.motion.lane != null ? m.motion.lane : laneSeq++ % 5;
+        return { phase, lane };
+      }
+
+      for (let i = 0; i < MODULES.length; i++) runtime.push(newRuntime(MODULES[i]));
+
+      // Mesh names come from the id, not the label: they end up as the o / usemtl
+      // entries in an exported OBJ, so they have to survive a rename.
+      function makeContact(m, rt) {
+        const { radius, y } = m.geometry;
+        const mat = matsFor(m);
+        const id = m.id;
+
+        const pivot = new THREE.Group();
+        pivot.name = id + "-contact";
+        pivot.rotation.y = rt.phase;
+        pivot.visible = m.layout.visible;
+
+        // Contacts sit further out for wider modules, echoing the strip's own radius.
+        // The lane comes from runtime, not the array index, so deleting one module
+        // never shifts everyone else's contact outward or inward.
+        const d = 0.42 + (radius - 0.62) * 1.55 + rt.lane * 0.3;
+
+        const blip = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), mat.band);
+        blip.name = id + "-blip";
+        blip.position.set(d, 0.012, 0);
+        pivot.add(blip);
+
+        // Vertical tether from the strip down to its contact.
+        const tether = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, y - SCAN_Y, 6), mat.glow);
+        tether.name = id + "-tether";
+        tether.position.set(d, (y - SCAN_Y) / 2, 0);
+        pivot.add(tether);
+
+        // Selection marker: a ring drawn on the plate around the dot, a brighter
+        // twin of the dot itself, and a beam up the tether so the pairing between
+        // contact and strip reads as one object. Hidden until the module is picked.
+        const mark = new THREE.Group();
+        mark.name = id + "-select";
+        mark.visible = false;
+
+        const ring = flat(new THREE.Mesh(new THREE.RingGeometry(0.082, 0.104, 44), mat.mark));
+        ring.name = id + "-select-ring";
+        ring.position.set(d, 0.014, 0);
+        mark.add(ring);
+
+        const hotBlip = new THREE.Mesh(new THREE.OctahedronGeometry(0.062), mat.hot);
+        hotBlip.name = id + "-select-blip";
+        hotBlip.position.set(d, 0.012, 0);
+        mark.add(hotBlip);
+
+        const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, y - SCAN_Y, 8), mat.mark);
+        beam.name = id + "-select-beam";
+        beam.position.set(d, (y - SCAN_Y) / 2, 0);
+        mark.add(beam);
+
+        pivot.add(mark);
+
+        return { pivot, mark };
+      }
+
+      const spinners = [];
+
+      /* ---- module name labels ---- */
+      // Drawn to a canvas, then mapped onto a slice of cylinder sharing the band's
+      // axis — so the name curves with the strip and travels with it as it turns.
+      // A canvas texture needs no font loader and no extra import-map entry.
+      // Preferred world height of a label; thin bands shrink it to fit.
+      const LABEL_H = 0.046;
+      const labelCache = new Map();
+
+      function labelMaterial(name) {
+        let mat = labelCache.get(name);
+        if (mat) return mat;
+
+        // Oversampled and heavy: at this size the glyphs land on few screen pixels,
+        // and thin strokes plus mipmap minification are what read as "dim".
+        const FS = 128,
+          PAD = 24;
+        const font = "700 " + FS + 'px "Futura PT", system-ui, sans-serif';
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        ctx.font = font;
+        canvas.width = Math.ceil(ctx.measureText(name).width) + PAD * 2;
+        canvas.height = FS + PAD * 2;
+        // Resizing the canvas resets the context, so restate the draw settings.
+        ctx.font = font;
+        ctx.textBaseline = "middle";
+        // Drawn twice so the anti-aliased edges reach full white rather than grey.
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(name, PAD, canvas.height / 2);
+        ctx.fillText(name, PAD, canvas.height / 2);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = stage._renderer.capabilities.getMaxAnisotropy();
+
+        // Unlit, so the name stays clean white over the band's own emission.
+        mat = new THREE.MeshBasicMaterial({
+          map: tex,
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+        });
+        mat.name = "label-" + name;
+        mat.userData.aspect = canvas.width / canvas.height;
+        labelCache.set(name, mat);
+        return mat;
+      }
+
+      function makeStrip(m, rt) {
+        const { radius, y, arc: arcDeg, band: h } = m.geometry;
+        const app = m.appearance;
+        const mat = matsFor(m);
+        const id = m.id;
+
+        const g = new THREE.Group();
+        g.name = id;
+        g.position.y = y;
+        // Resume where this module was, rather than rolling a new random phase —
+        // that reset was what made the whole stack jump on every edit.
+        g.rotation.y = rt.phase;
+        g.visible = m.layout.visible;
+
+        const arc = THREE.MathUtils.degToRad(arcDeg);
+        const seg = Math.max(24, Math.round(arcDeg / 3));
+
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, h, seg, 1, true, 0, arc), mat.band);
+        band.name = id + "-band";
+        g.add(band);
+
+        // The three soft layers are optional per module: a dense stack reads better
+        // with some of them off, and they are the cheapest thing to drop.
+        if (app.glow) {
+          const glow = new THREE.Mesh(new THREE.CylinderGeometry(radius + 0.014, radius + 0.014, h * 2.4, seg, 1, true, -0.04, arc + 0.08), mat.glow);
+          glow.name = id + "-glow";
+          g.add(glow);
+        }
+
+        if (app.halo) {
+          const halo = new THREE.Mesh(new THREE.CylinderGeometry(radius + 0.03, radius + 0.03, h * 3.0, seg, 1, true, -0.07, arc + 0.14), mat.halo);
+          halo.name = id + "-halo";
+          g.add(halo);
+        }
+
+        // Trailing light streak: a thinner, dimmer continuation of the arc.
+        if (app.trail) {
+          const tail = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, h * 0.34, seg, 1, true, arc, Math.min(arc * 0.8, 2.4)), mat.glow);
+          tail.name = id + "-trail";
+          g.add(tail);
+        }
+
+        // Text printed on the band: a cylinder slice on the same axis, a hair outside
+        // the band's own radius. The cylinder's UVs run along the arc, so the texture
+        // wraps with the curve instead of hovering flat in front of it. The text is
+        // appearance.label if set, else the display name — never the id, which is
+        // identity and may not be what anyone wants to read.
+        if (app.labelVisible) {
+          const labMat = labelMaterial(bandText(m));
+          // Clear of the band by enough that depth testing never nibbles at the text.
+          const lr = radius + 0.014;
+          let lh = Math.min(LABEL_H, h * 0.78) * app.labelScale;
+          let lTheta = (lh * labMat.userData.aspect) / lr;
+          // Long name on a short arc: scale the whole label down rather than squash it.
+          const fit = arc * 0.9;
+          if (lTheta > fit) {
+            lh *= fit / lTheta;
+            lTheta = fit;
+          }
+
+          const label = new THREE.Mesh(new THREE.CylinderGeometry(lr, lr, lh, Math.max(12, Math.round(lTheta * 48)), 1, true, (arc - lTheta) / 2, lTheta), labMat);
+          label.name = id + "-label";
+          label.userData.noShadow = true;
+          label.renderOrder = 10;
+          g.add(label);
+        }
+
+        // Selection overlay: a brighter twin of the band, hidden until picked.
+        const pick = new THREE.Mesh(new THREE.CylinderGeometry(radius + 0.006, radius + 0.006, h * 1.45, seg, 1, true, -0.015, arc + 0.03), mat.hot);
+        pick.name = id + "-select";
+        pick.visible = false;
+        g.add(pick);
+
+        return { g, speed: m.motion.speed * Math.PI * 2 * 0.15, pick };
+      }
+
+      // Dim the always-on materials while something is picked, so the selected strip
+      // and its contact carry the eye. Driven off each material's own recorded base
+      // rather than recomputed constants, since a per-module colour override means
+      // there is no fixed set of materials to enumerate.
+      const DIM = 0.55;
+
+      function applyHighlight() {
+        const k = selected != null ? DIM : 1;
+        for (const mat of matReg.values()) {
+          if (!mat.userData.dimmable) continue;
+          mat.emissiveIntensity = mat.userData.baseEmissive * k;
+          if (mat.userData.baseOpacity != null) mat.opacity = mat.userData.baseOpacity * k;
+        }
+        for (let i = 0; i < spinners.length; i++) spinners[i].pick.visible = i === selected;
+        for (let i = 0; i < contacts.length; i++) contacts[i].mark.visible = i === selected;
+      }
+
+      /* ---- lifecycle animations ---- */
+      // Effects run on private material clones. The shared status materials back a
+      // dozen modules each, so fading or recolouring one in place would drag the
+      // rest with it — same reason the selection highlight keeps its own materials.
+      const fx = [];
+      const FLASH = new THREE.Color(0xffffff);
+      // A delete defers its splice until the fade finishes, so the panel stays out
+      // of the way until the module is actually gone.
+      let removing = false;
+
+      function isolate(roots) {
+        const saved = [];
+        for (const root of roots) {
+          root.traverse((o) => {
+            if (!o.isMesh) return;
+            saved.push({ mesh: o, shared: o.material, base: o.material.opacity });
+            o.material = o.material.clone();
+            o.material.transparent = true;
+          });
+        }
+        return saved;
+      }
+
+      function restoreFx(saved) {
+        for (const s of saved) {
+          s.mesh.material.dispose();
+          s.mesh.material = s.shared;
+        }
+      }
+
+      // Scale every mesh's own opacity, so a glow at 0.16 stays a glow.
+      function fadeFx(saved, k) {
+        for (const s of saved) s.mesh.material.opacity = s.base * k;
+      }
+
+      function tintFx(saved, color) {
+        for (const s of saved) if (s.mesh.material.emissive) s.mesh.material.emissive.copy(color);
+      }
+
+      const blinkOn = (t, hz) => Math.floor(t * hz * 2) % 2 === 0;
+      const smooth = (p) => p * p * (3 - 2 * p);
+
+      function startFx(kind, roots, dur, opts) {
+        const e = Object.assign({ kind, roots, dur, t: 0, saved: isolate(roots) }, opts || {});
+        if (kind === "appear") fadeFx(e.saved, 0);
+        fx.push(e);
+      }
+
+      // Drop every running effect without firing its completion — used by buildAll(),
+      // which is about to replace the objects the effects are driving.
+      function cancelFx() {
+        while (fx.length) {
+          const e = fx.pop();
+          for (const r of e.roots) r.visible = true;
+          restoreFx(e.saved);
+        }
+        removing = false;
+      }
+
+      // Drop only the effects driving this object. Unmounting one module must not
+      // abort an animation running on another.
+      function cancelFxFor(root) {
+        for (let i = fx.length - 1; i >= 0; i--) {
+          if (!fx[i].roots.includes(root)) continue;
+          const e = fx.splice(i, 1)[0];
+          for (const r of e.roots) r.visible = true;
+          restoreFx(e.saved);
+        }
+      }
+
+      function stepFx(dt) {
+        for (let i = fx.length - 1; i >= 0; i--) {
+          const e = fx[i];
+          e.t += dt;
+          const p = Math.min(e.t / e.dur, 1);
+
+          if (e.kind === "remove") {
+            const lead = 0.34;
+            for (const r of e.roots) r.visible = e.t < lead ? blinkOn(e.t, 14) : true;
+            fadeFx(e.saved, e.t < lead ? 1 : 1 - (e.t - lead) / (e.dur - lead));
+          } else if (e.kind === "appear") {
+            for (const r of e.roots) r.visible = e.t < 0.45 ? blinkOn(e.t, 10) : true;
+            fadeFx(e.saved, smooth(p));
+          } else if (e.kind === "update") {
+            for (const r of e.roots) r.visible = e.t < 0.4 ? blinkOn(e.t, 12) : true;
+            // Flash to white, then settle into the new status colour.
+            tintFx(e.saved, p < 0.5 ? e.from.clone().lerp(FLASH, p * 2) : FLASH.clone().lerp(e.to, (p - 0.5) * 2));
+          }
+
+          if (p < 1) continue;
+
+          // Off the list before done() runs — a completion unmounts its module,
+          // and cancelFxFor() must not find this effect still there.
+          fx.splice(i, 1);
+          for (const r of e.roots) r.visible = true;
+          restoreFx(e.saved);
+          if (e.done) e.done();
+        }
+      }
+
+      // Kick off the update flash for a module index, given the colour it had before.
+      function flashUpdate(i, prevColor) {
+        if (!spinners[i] || !contacts[i]) return;
+        startFx("update", [spinners[i].g, contacts[i].pivot], 0.8, {
+          from: new THREE.Color(prevColor),
+          to: new THREE.Color(colorOf(MODULES[i])),
+        });
+      }
+
+      /* ---- scene graph operations ---- */
+      // One module changing must touch one module's objects. Rebuilding the whole
+      // stack for a single edit is what made every other strip jump.
+
+      function disposeGroup(g) {
+        g.traverse((o) => {
+          if (o.isMesh) o.geometry.dispose();
+        });
+      }
+
+      // Build module i's objects and put them in the scene at slot i.
+      function mount(i) {
+        const s = makeStrip(MODULES[i], runtime[i]);
+        const c = makeContact(MODULES[i], runtime[i]);
+        spinners[i] = s;
+        contacts[i] = c;
+        model.add(s.g);
+        scanner.add(c.pivot);
+        applyShadowFlags(s.g);
+        applyShadowFlags(c.pivot);
+      }
+
+      // Tear module i's objects out, leaving the arrays for the caller to adjust.
+      function unmount(i) {
+        cancelFxFor(spinners[i].g);
+        disposeGroup(spinners[i].g);
+        model.remove(spinners[i].g);
+        disposeGroup(contacts[i].pivot);
+        scanner.remove(contacts[i].pivot);
+      }
+
+      function buildAll() {
+        cancelFx();
+        for (let i = 0; i < spinners.length; i++) unmount(i);
+        spinners.length = 0;
+        contacts.length = 0;
+        for (let i = 0; i < MODULES.length; i++) mount(i);
+        applyHighlight();
+      }
+
+      // Every edit to MODULES goes through one of the three below, so that is where
+      // the file falls out of date with the scene.
+
+      function addModule(mod) {
+        MODULES.push(mod);
+        runtime.push(newRuntime(mod));
+        mount(MODULES.length - 1);
+        applyHighlight();
+        markDirty();
+      }
+
+      function removeModule(i) {
+        unmount(i);
+        spinners.splice(i, 1);
+        contacts.splice(i, 1);
+        MODULES.splice(i, 1);
+        runtime.splice(i, 1);
+        applyHighlight();
+        markDirty();
+      }
+
+      // Swap module i's definition, keeping its runtime — so an edit re-geometries
+      // that one strip in place without disturbing its spin or anyone else's. An
+      // edit that pins phase or lane is the one exception: those are the runtime,
+      // so the runtime has to follow the data.
+      function replaceModule(i, mod) {
+        const before = MODULES[i];
+        unmount(i);
+        MODULES[i] = mod;
+        if (mod.motion.phase != null && mod.motion.phase !== before.motion.phase) {
+          runtime[i].phase = mod.motion.phase;
+        }
+        if (mod.motion.lane != null && mod.motion.lane !== before.motion.lane) {
+          runtime[i].lane = mod.motion.lane;
+        }
+        mount(i);
+        applyHighlight();
+        markDirty();
+      }
+
+      // Rebuild everything from the file, discarding whatever is on screen. Runtime
+      // state goes with it: these are no longer the modules those phases belonged to.
+      async function reloadFromFile() {
+        await readFile();
+        runtime.length = 0;
+        laneSeq = 0;
+        for (let i = 0; i < MODULES.length; i++) runtime.push(newRuntime(MODULES[i]));
+        selected = null;
+        formEl.style.display = "none";
+        buildAll();
+        renderList();
+      }
+
+      // Labels opt out of casting: the shadow pass ignores map transparency, so a
+      // label would otherwise throw a solid rectangle onto the bands behind it.
+      function applyShadowFlags(root) {
+        root.traverse((o) => {
+          if (!o.isMesh) return;
+          o.castShadow = !o.userData.noShadow;
+          o.receiveShadow = true;
+        });
+      }
+
+      // Pull in the brand face before the first build, so labels rasterise in
+      // Futura PT rather than whatever the fallback happens to be. The weight must
+      // match the one labelMaterial draws with — each weight is its own font file.
+      try {
+        await document.fonts.load('700 128px "Futura PT"');
+      } catch (e) {}
+
+      buildAll();
+      stage.setObject(model);
+      // setObject turns casting on for every mesh it finds — restate the opt-outs.
+      applyShadowFlags(model);
+      stage._camera.position.multiplyScalar(0.68);
+      stage._controls.update();
+
+      /* ---- console API ---- */
+      //   listModules()                              ids, in file order
+      //   getModule('db-ledger')                     a copy, safe to poke at
+      //   setStatus('db-ledger', 'running')
+      //   setField('db-ledger', 'appearance.color', '#3E8CF0')
+      //   setField('db-ledger', 'layout.visible', false)
+      //   pinPhase('db-ledger')                      freeze it where it is now
+      //
+      // Everything goes through the same validate-then-replace path the panel uses,
+      // so a bad value from the console is refused rather than corrupting the list.
+
+      function indexOfId(id) {
+        const i = MODULES.findIndex((m) => m.id === id);
+        if (i < 0) throw new Error('no module with id "' + id + '" — try listModules()');
+        return i;
+      }
+
+      // Apply a change to one module, validating it first. Returns the new object.
+      function commit(i, mutate) {
+        const next = structuredClone(MODULES[i]);
+        mutate(next);
+        const { module, errors } = normalize(next, { statuses: Object.keys(STATUS) });
+        if (errors.length) throw new Error(errors[0]);
+        if (module.id !== MODULES[i].id && takenIds(i).has(module.id)) {
+          throw new Error('id "' + module.id + '" is already taken');
+        }
+        const prev = colorOf(MODULES[i]);
+        replaceModule(i, module);
+        renderList();
+        if (selected === i) fillForm(module);
+        flashUpdate(i, prev);
+        return module;
+      }
+
+      window.listModules = () => MODULES.map((m) => m.id);
+      window.getModule = (id) => structuredClone(MODULES[indexOfId(id)]);
+
+      window.setStatus = (id, status) => {
+        if (!STATUS[status]) throw new Error("status must be one of: " + Object.keys(STATUS).join(", "));
+        commit(indexOfId(id), (m) => {
+          m.status = status;
+        });
+        return id + " → " + status;
+      };
+
+      window.setField = (id, path, value) => {
+        const parts = String(path).split(".");
+        if (parts.length > 2) throw new Error('path is "field" or "group.field"');
+        commit(indexOfId(id), (m) => {
+          if (parts.length === 1) m[parts[0]] = value;
+          else {
+            if (!m[parts[0]] || typeof m[parts[0]] !== "object") m[parts[0]] = {};
+            m[parts[0]][parts[1]] = value;
+          }
+        });
+        return id + " " + path + " = " + JSON.stringify(value);
+      };
+
+      // Freeze a module where it currently sits, so a save reproduces this exact
+      // arrangement instead of rolling a fresh random angle on the next load.
+      window.pinPhase = (id) => {
+        const i = indexOfId(id);
+        const live = ((runtime[i].phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        commit(i, (m) => {
+          m.motion.phase = Math.round(live * 10000) / 10000;
+          m.motion.lane = runtime[i].lane;
+        });
+        return id + " pinned at " + live.toFixed(3);
+      };
+
+      /* ---- control panel ---- */
+      const listEl = document.getElementById("mod-list");
+      const formEl = document.getElementById("mod-form");
+      const F = (id) => document.getElementById(id);
+
+      /* ---- drawer ---- */
+      // The panel is a workbench, not a readout: it earns its screen only while it is
+      // being used. Closed on load, opened by the handle, and closed again once the
+      // pointer and focus have both left — the delay is there so crossing a corner of
+      // the scene on the way back doesn't slam it shut.
+      const panelEl = document.querySelector(".panel");
+      const tabEl = F("drawer-tab");
+      let hideTimer = null;
+
+      function setDrawer(open) {
+        clearTimeout(hideTimer);
+        panelEl.classList.toggle("closed", !open);
+        tabEl.textContent = open ? ">" : "<";
+        tabEl.setAttribute("aria-expanded", String(open));
+        tabEl.setAttribute("aria-label", (open ? "Hide" : "Show") + " modules panel");
+      }
+
+      // Never yank the panel out from under a live edit: a focused field or a hovered
+      // panel means it is still in use, whatever the pointer did on the way past.
+      function scheduleHide(delay = 900) {
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+          if (panelEl.matches(":hover") || panelEl.contains(document.activeElement)) return scheduleHide();
+          setDrawer(false);
+        }, delay);
+      }
+
+      tabEl.onclick = () => setDrawer(panelEl.classList.contains("closed"));
+      panelEl.addEventListener("pointerenter", () => clearTimeout(hideTimer));
+      panelEl.addEventListener("focusin", () => clearTimeout(hideTimer));
+      panelEl.addEventListener("pointerleave", () => scheduleHide());
+      panelEl.addEventListener("focusout", () => scheduleHide());
+      // Touch has no pointerleave — reaching for the scene is the close gesture there.
+      document.addEventListener("pointerdown", (e) => {
+        if (!panelEl.contains(e.target) && e.target !== tabEl) scheduleHide(200);
+      });
+
+      function renderList() {
+        listEl.innerHTML = "";
+
+        // Grouped by meta.group, then ordered by layout.order where it is set and by
+        // file order where it is not. Sorting by group first is what keeps each
+        // group's rows contiguous, so the headings below can be emitted on change.
+        const rows = MODULES.map((m, i) => ({ m, i }));
+        const grouped = rows.some((r) => r.m.meta.group);
+        rows.sort((a, b) => {
+          // Ungrouped modules sort last, whatever they are called.
+          const ag = a.m.meta.group || "￿";
+          const bg = b.m.meta.group || "￿";
+          if (ag !== bg) return ag < bg ? -1 : 1;
+          const ao = a.m.layout.order;
+          const bo = b.m.layout.order;
+          if (ao != null && bo != null && ao !== bo) return ao - bo;
+          if (ao != null && bo == null) return -1;
+          if (ao == null && bo != null) return 1;
+          return a.i - b.i;
+        });
+
+        let lastGroup;
+        for (const { m, i } of rows) {
+          const g = m.meta.group || "";
+          if (grouped && g !== lastGroup) {
+            const head = document.createElement("div");
+            head.className = "grp";
+            head.textContent = g || "ungrouped";
+            listEl.appendChild(head);
+            lastGroup = g;
+          }
+
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "mod" + (i === selected ? " on" : "") + (m.layout.visible ? "" : " off") + (m.layout.selectable ? "" : " nosel");
+
+          const swatch = document.createElement("i");
+          swatch.style.background = m.appearance.color || STATUS[m.status].hex;
+          const name = document.createElement("span");
+          // textContent, not innerHTML: a label is free text now, so it may well
+          // contain characters that would otherwise be read as markup.
+          name.textContent = displayName(m);
+          row.append(swatch, name);
+
+          if (m.layout.locked) {
+            const lock = document.createElement("b");
+            lock.className = "lock";
+            lock.textContent = "▪";
+            lock.title = "Locked";
+            row.appendChild(lock);
+          }
+          const hint = m.meta.tooltip || m.meta.description;
+          if (hint) row.title = hint;
+
+          row.onclick = () => select(i);
+          listEl.appendChild(row);
+        }
+        F("count").textContent = MODULES.length + " modules";
+      }
+
+      /* ---- the editing form is generated from SPEC ---- */
+      // Not a line of this form is written by hand. Every control, its type, its
+      // range and its label come from the schema in modules-store.js, so declaring a
+      // field there is the whole job of adding it to the panel — there is no markup
+      // to keep in step and no second copy of the validation rules.
+
+      const fieldId = (path) => "f-" + path.replace(/\./g, "-");
+      const isNullable = (s) => !!s.nullable || s.default === null;
+      const emptyValue = (s) => (isNullable(s) ? null : "");
+      const attr = (name, v) => (v == null ? "" : " " + name + '="' + v + '"');
+
+      // Everything editable, as [path, spec], in schema order.
+      const FIELDS = [];
+      for (const [key, spec] of Object.entries(SPEC)) {
+        if (spec.fields) for (const [fk, fs] of Object.entries(spec.fields)) FIELDS.push([key + "." + fk, fs]);
+        else FIELDS.push([key, spec]);
+      }
+
+      function readPath(m, path) {
+        const p = path.split(".");
+        return p.length === 1 ? m[p[0]] : (m[p[0]] || {})[p[1]];
+      }
+
+      function writePath(m, path, v) {
+        const p = path.split(".");
+        if (p.length === 1) {
+          m[p[0]] = v;
+          return;
+        }
+        if (!m[p[0]] || typeof m[p[0]] !== "object") m[p[0]] = {};
+        m[p[0]][p[1]] = v;
+      }
+
+      // One entry per ui.control in SPEC. read() returns whatever the schema should
+      // judge — including null or NaN for an empty or unparseable field, so the one
+      // set of validation rules gets to produce the message.
+      const CONTROLS = {
+        text: {
+          make: () => "<input type='text'>",
+          read: (w, s) => {
+            const v = w.querySelector("input").value.trim();
+            return v === "" ? emptyValue(s) : v;
+          },
+          write: (w, s, v) => {
+            w.querySelector("input").value = v == null ? "" : String(v);
+          },
+        },
+
+        number: {
+          make: (s) => "<input type='number'" + attr("step", s.ui.step) + attr("min", s.min) + attr("max", s.max) + (isNullable(s) ? " placeholder='auto'" : "") + ">",
+          read: (w) => {
+            const raw = w.querySelector("input").value.trim();
+            return raw === "" ? null : Number(raw);
+          },
+          write: (w, s, v) => {
+            w.querySelector("input").value = v == null ? "" : String(v);
+          },
+        },
+
+        toggle: {
+          make: () => "<input type='checkbox'>",
+          read: (w) => w.querySelector("input").checked,
+          write: (w, s, v) => {
+            w.querySelector("input").checked = !!v;
+          },
+        },
+
+        status: {
+          make: () =>
+            "<select>" +
+            Object.keys(STATUS)
+              .map((k) => "<option value='" + k + "'>" + STATUS[k].name + "</option>")
+              .join("") +
+            "</select>",
+          read: (w) => w.querySelector("select").value,
+          write: (w, s, v) => {
+            w.querySelector("select").value = v;
+          },
+        },
+
+        color: {
+          // A colour input has no way to say "no override", so an explicit auto box
+          // carries the null and greys the swatch out while it is ticked.
+          make: () => "<span class='swatch'><input type='checkbox' data-role='auto' title='Use the status colour'>" + "<input type='color' data-role='value'></span>",
+          read: (w) => (w.querySelector("[data-role=auto]").checked ? null : w.querySelector("[data-role=value]").value.toUpperCase()),
+          write: (w, s, v) => {
+            const auto = w.querySelector("[data-role=auto]");
+            const val = w.querySelector("[data-role=value]");
+            auto.checked = v == null;
+            val.disabled = v == null;
+            val.value = v == null ? "#888888" : v;
+          },
+        },
+
+        list: {
+          make: () => "<input type='text' placeholder='comma separated'>",
+          read: (w) =>
+            w
+              .querySelector("input")
+              .value.split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
+          write: (w, s, v) => {
+            w.querySelector("input").value = (v || []).join(", ");
+          },
+        },
+
+        pairs: {
+          make: () => "<textarea rows='2' placeholder='name = number, one per line'></textarea>",
+          read: (w) => {
+            const out = {};
+            for (const line of w.querySelector("textarea").value.split("\n")) {
+              const t = line.trim();
+              if (!t) continue;
+              const eq = t.indexOf("=");
+              // A line with no "=" is left as NaN on purpose: the schema reports it.
+              if (eq < 0) out[t] = NaN;
+              else out[t.slice(0, eq).trim()] = Number(t.slice(eq + 1).trim());
+            }
+            return out;
+          },
+          write: (w, s, v) => {
+            w.querySelector("textarea").value = Object.entries(v || {})
+              .map(([k, n]) => k + " = " + n)
+              .join("\n");
+          },
+        },
+
+        phase: {
+          // A number, plus a way to capture where the strip has actually got to —
+          // typing a radian angle by hand is nobody's idea of a good time.
+          make: (s) =>
+            "<span class='withbtn'><input type='number'" +
+            attr("step", s.ui.step) +
+            " placeholder='auto'>" +
+            "<button type='button' data-role='pin' title='Pin the angle it is at now'>pin</button></span>",
+          read: (w) => {
+            const raw = w.querySelector("input").value.trim();
+            return raw === "" ? null : Number(raw);
+          },
+          write: (w, s, v) => {
+            w.querySelector("input").value = v == null ? "" : String(v);
+          },
+        },
+      };
+
+      function fieldHtml([path, spec]) {
+        const control = CONTROLS[spec.ui.control];
+        const cls = "fld" + (spec.ui.wide ? " wide" : "") + (spec.ui.control === "toggle" ? " row" : "");
+        return (
+          "<label class='" +
+          cls +
+          "'><span class='cap'>" +
+          spec.ui.label +
+          "</span>" +
+          "<span class='ctl' id='" +
+          fieldId(path) +
+          "' data-path='" +
+          path +
+          "'>" +
+          control.make(spec, path) +
+          "</span></label>"
+        );
+      }
+
+      function buildForm() {
+        const html = [];
+        // The ungrouped scalars — id, label, status — sit at the top, always shown.
+        html.push(
+          "<div class='fields'>" +
+            FIELDS.filter(([p]) => !p.includes("."))
+              .map(fieldHtml)
+              .join("") +
+            "</div>",
+        );
+        for (const g of GROUPS) {
+          const spec = SPEC[g];
+          const inner = Object.entries(spec.fields)
+            .map(([k, fs]) => fieldHtml([g + "." + k, fs]))
+            .join("");
+          html.push("<details class='sect'" + (spec.open ? " open" : "") + "><summary>" + spec.title + "</summary>" + "<div class='fields'>" + inner + "</div></details>");
+        }
+        formEl.innerHTML = html.join("");
+
+        formEl.querySelectorAll("input, select, textarea").forEach((el) => {
+          el.addEventListener("change", apply);
+        });
+        formEl.querySelectorAll("[data-role=pin]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            if (selected == null) return;
+            try {
+              window.pinPhase(MODULES[selected].id);
+              setIo("Phase and lane pinned", "ok");
+            } catch (err) {
+              setIo(err.message, "err");
+            }
+          });
+        });
+      }
+
+      function fillForm(m) {
+        for (const [path, spec] of FIELDS) {
+          const w = F(fieldId(path));
+          if (w) CONTROLS[spec.ui.control].write(w, spec, readPath(m, path));
+        }
+        // A locked module stays readable but not editable — except for the lock
+        // itself, which is the way back out.
+        const locked = !!m.layout.locked;
+        formEl.querySelectorAll("input, select, textarea, button").forEach((el) => {
+          const ctl = el.closest(".ctl");
+          el.disabled = locked && !(ctl && ctl.dataset.path === "layout.locked");
+        });
+        // The colour swatch has its own reason to be disabled; restate it after that
+        // sweep, or an unlocked module with no override comes back editable.
+        const cw = F(fieldId("appearance.color"));
+        if (cw && !locked) cw.querySelector("[data-role=value]").disabled = cw.querySelector("[data-role=auto]").checked;
+      }
+
+      // Read every control into a copy of the module. Cloning rather than building
+      // fresh is what preserves fields this build does not know about.
+      function readForm(cur) {
+        const next = structuredClone(cur);
+        for (const [path, spec] of FIELDS) {
+          const w = F(fieldId(path));
+          if (w) writePath(next, path, CONTROLS[spec.ui.control].read(w, spec));
+        }
+        return next;
+      }
+
+      function select(i) {
+        const m = MODULES[i];
+        if (!m) return;
+        if (!m.layout.selectable) {
+          setIo(displayName(m) + " is marked not selectable", "err");
+          return;
+        }
+        selected = i;
+        formEl.style.display = "block";
+        fillForm(m);
+        renderList();
+        applyHighlight();
+      }
+
+      function apply() {
+        if (selected == null || removing) return;
+        const cur = MODULES[selected];
+
+        // Unlocking is the one edit a locked module accepts. Everything else is
+        // refused — the controls are disabled too, so this is the backstop.
+        if (cur.layout.locked) {
+          const w = F(fieldId("layout.locked"));
+          if (!w || CONTROLS.toggle.read(w)) {
+            setIo("Module is locked — untick Locked to edit it", "err");
+            fillForm(cur);
+            return;
+          }
+          const unlocked = structuredClone(cur);
+          unlocked.layout.locked = false;
+          replaceModule(selected, unlocked);
+          renderList();
+          fillForm(unlocked);
+          return;
+        }
+
+        // No validation is repeated here: whatever the loader would refuse, the form
+        // refuses too, in the same words, because it is the same code.
+        const { module, errors } = normalize(readForm(cur), { statuses: Object.keys(STATUS) });
+        if (errors.length) {
+          setIo(errors[0] + " — reverted", "err");
+          fillForm(cur);
+          return;
+        }
+        if (module.id !== cur.id && takenIds(selected).has(module.id)) {
+          setIo('Another module already uses the id "' + module.id + '" — reverted', "err");
+          fillForm(cur);
+          return;
+        }
+
+        const prev = colorOf(cur);
+        replaceModule(selected, module);
+        renderList();
+        fillForm(module);
+        flashUpdate(selected, prev);
+      }
+
+      buildForm();
+
+      F("add").onclick = () => {
+        if (removing) return;
+        // Numbering by list length repeats itself after a delete — add, remove an
+        // older module, add again and you get the same id twice. Ask for a free one.
+        addModule(blankModule(uniqueId("new-module", takenIds()), "init"));
+        const i = MODULES.length - 1;
+        select(i);
+        // Initializing: blink, then ease up out of nothing.
+        if (spinners[i] && contacts[i]) startFx("appear", [spinners[i].g, contacts[i].pivot], 1.2);
+      };
+
+      F("del").onclick = () => {
+        if (selected == null || removing) return;
+        const i = selected;
+        if (!spinners[i] || !contacts[i]) return;
+        // Blink out, fade away, and only then drop the module — unmounting first
+        // would destroy the very objects the effect is animating.
+        removing = true;
+        formEl.style.display = "none";
+        startFx("remove", [spinners[i].g, contacts[i].pivot], 0.75, {
+          done: () => {
+            removing = false;
+            selected = null;
+            removeModule(i);
+            renderList();
+          },
+        });
+      };
+
+      /* ---- modules.json read/write ---- */
+      // Saving is explicit. Edits are fiddly and continuous — a strip's arc gets
+      // nudged a dozen times before it looks right — and writing the file on each
+      // keystroke would bury the version worth keeping.
+
+      let busy = false;
+
+      async function withBusy(label, fn) {
+        if (busy) return;
+        busy = true;
+        F("save").disabled = F("reload").disabled = true;
+        setIo(label, "");
+        try {
+          await fn();
+        } catch (err) {
+          setIo(String(err.message), "err");
+          console.error(err);
+        } finally {
+          busy = false;
+          F("save").disabled = F("reload").disabled = false;
+        }
+      }
+
+      F("save").onclick = () =>
+        withBusy("Saving…", async () => {
+          // Bad rows are not a transport problem, so they are caught before the write
+          // is attempted — there is no point handing the user a broken file to install
+          // by hand, which is what the fallback below would otherwise do.
+          const problems = verify(MODULES, { statuses: Object.keys(STATUS) });
+          if (problems.length) {
+            for (const p of problems) console.warn("modules.json:", p);
+            throw new Error(problems.length + " invalid module" + (problems.length === 1 ? "" : "s") + ": " + problems[0]);
+          }
+
+          // The file still holds entries this session could not read. Saving replaces
+          // it with what is on screen, so this is the moment they are lost for good.
+          if (skippedOnLoad > 0) {
+            const plural = skippedOnLoad === 1;
+            const ok = confirm(
+              skippedOnLoad +
+                (plural ? " entry was" : " entries were") +
+                " skipped when modules.json was read — see the console for which.\n\n" +
+                "Saving writes only the " +
+                MODULES.length +
+                " module" +
+                (MODULES.length === 1 ? "" : "s") +
+                " shown here, deleting " +
+                (plural ? "that entry" : "those entries") +
+                " permanently.\n\nSave anyway?",
+            );
+            if (!ok) {
+              setIo("Save cancelled — modules.json untouched", "");
+              return;
+            }
+          }
+
+          try {
+            const n = await saveModules(MODULES, { statuses: Object.keys(STATUS) });
+            dirty = false;
+            // Whatever was skipped is genuinely gone now; stop warning about it.
+            skippedOnLoad = 0;
+            setIo("Saved " + n + " modules · " + new Date().toLocaleTimeString(), "ok");
+          } catch (err) {
+            // Read-only host: still let the work out, as a file to drop in by hand.
+            download(MODULES);
+            throw new Error(err.message + " — downloaded modules.json instead");
+          }
+        });
+
+      F("reload").onclick = () => {
+        if (removing) return;
+        if (dirty && !confirm("Discard unsaved changes and re-read modules.json?")) return;
+        withBusy("Reading…", reloadFromFile);
+      };
+
+      // Losing a session of layout work to a stray refresh is not worth the silence.
+      window.addEventListener("beforeunload", (e) => {
+        if (!dirty) return;
+        e.preventDefault();
+        e.returnValue = "";
+      });
+
+      // Console API:  saveToFile() · reloadModules()
+      window.saveToFile = () => F("save").click();
+      window.reloadModules = () => F("reload").click();
+
+      // Click the panel background (not a module row) to drop the selection.
+      listEl.addEventListener("click", (e) => {
+        if (e.target !== listEl) return;
+        selected = null;
+        formEl.style.display = "none";
+        renderList();
+        applyHighlight();
+      });
+
+      renderList();
+
+      let last = performance.now();
+      function tick(now) {
+        const dt = Math.min((now - last) / 1000, 0.1);
+        last = now;
+        for (let i = 0; i < spinners.length; i++) {
+          const a = (spinners[i].g.rotation.y += spinners[i].speed * dt);
+          // Park the live angle in runtime so a remount picks up exactly here.
+          runtime[i].phase = a;
+          if (contacts[i]) contacts[i].pivot.rotation.y = a;
+        }
+        sweepPivot.rotation.z -= 0.3 * dt;
+        stepFx(dt);
+
+        // Selection pulse. Only the picked module's meshes are visible with these
+        // materials, so this animates the strip and its contact in lockstep.
+        if (selected != null) {
+          const p = 0.5 + 0.5 * Math.sin(now * 0.005);
+          for (const mat of matReg.values()) {
+            if (mat.userData.kind === "hot") mat.opacity = 0.55 + 0.35 * p;
+            else if (mat.userData.kind === "mark") mat.emissiveIntensity = 1.7 + 1.7 * p;
+          }
+        }
+
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    </script>
+  </body>
+</html>

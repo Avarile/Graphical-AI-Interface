@@ -1,0 +1,111 @@
+/* ============================================================
+   COLOR SYSTEM — Aaron Sansoni Group International
+   Reconciled with the OFFICIAL ASGI Brand Guidelines
+   (assets/ASGI-Brand-Guidelines.pdf, "Colour Palette").
+
+   PRIMARY  : Black #000000 · White #FFFFFF
+   SECONDARY: Light Grey #C2C6C0 · Gold Gradient
+   Program (Empire/Deal) colors are documented extensions used
+   only on their respective event surfaces — not core brand.
+   ============================================================ */
+:root{
+  /* --- PRIMARY (official) --- */
+  --black:#000000;      /* brand primary black */
+  --true-black:#000000;
+  --white:#FFFFFF;      /* brand primary white */
+
+  /* Neutral working ramp (UI convenience, built around the primaries
+     and the official secondary Light Grey #C2C6C0) */
+  --ink-900:#0A0A0A;
+  --ink-800:#1A1A1A;
+  --ink-700:#2E2E2E;
+  --ink-600:#4A4A4A;
+  --ink-500:#6E6E6E;
+  --ink-400:#9AA09A;
+  --ink-300:#C2C6C0;   /* = official Light Grey */
+  --ink-200:#DDE0DC;
+  --ink-100:#EEF0ED;
+  --ink-50:#F7F8F6;
+  --grey:#C2C6C0;      /* official secondary Light Grey */
+
+  /* --- SECONDARY: Gold Gradient (official stops) --- */
+  --gold-stop-1:#BB9244;
+  --gold-stop-2:#DDB54F;
+  --gold-stop-3:#E5D387;
+  --gold-stop-4:#F4DC75;
+  --gold-stop-5:#B08F4B;
+  --gold-gradient:linear-gradient(135deg,#BB9244 0%,#DDB54F 28%,#E5D387 52%,#F4DC75 74%,#B08F4B 100%); /* @kind other */
+  --gold-gradient-h:linear-gradient(90deg,#BB9244 0%,#DDB54F 28%,#E5D387 52%,#F4DC75 74%,#B08F4B 100%); /* @kind other */
+  /* Solid gold ramp derived from the gradient (for flat fills, borders, text) */
+  --gold-600:#B08F4B;  /* @kind color */
+  --gold-500:#DDB54F;  /* @kind color */
+  --gold-400:#E5D387;  /* @kind color */
+  --gold-300:#F4DC75;  /* @kind color */
+  --gold-100:#F8EFD3;  /* @kind color */
+  --gold-event:#E4A025; /* @kind color */
+
+  /* --- Program extensions (event surfaces only; not master brand) --- */
+  --empire-900:#160823;
+  --empire-800:#1E0D2E;
+  --empire-700:#301449;
+  --empire-600:#693090;
+  --empire-500:#8A46B8;
+  --empire-300:#C79BE3;
+  --empire-100:#EADBF6;
+  --deal-900:#01150C;
+  --deal-800:#012414;
+  --deal-700:#023C22;
+  --deal-600:#0A5A34;
+  --deal-400:#2E9C64;
+  --deal-100:#D8ECE1;
+
+  /* --- Functional / status --- */
+  --success:#0A5A34;
+  --warning:#DDB54F;
+  --danger:#C0392B;
+  --info:#693090;
+
+  /* ============================================================
+     SEMANTIC ALIASES — reference these in components.
+     Defaults = light "paper" theme (black on white).
+     ============================================================ */
+  --text-strong:var(--black);
+  --text-body:var(--ink-800);
+  --text-muted:var(--ink-500);
+  --text-inverse:var(--white);
+  --text-accent:var(--gold-600);
+
+  --surface-page:var(--white);
+  --surface-raised:var(--ink-50);
+  --surface-card:var(--white);
+  --surface-inverse:var(--black);
+  --surface-hero:var(--true-black);
+
+  --border-subtle:var(--ink-200);
+  --border-strong:var(--black);
+  --border-gold:var(--gold-500);
+
+  --accent:var(--gold-500);
+  --accent-strong:var(--gold-600);
+  --focus-ring:var(--gold-500);
+}
+
+/* Dark "stage" theme — white on black premium surfaces & hero slides. */
+[data-theme="dark"]{
+  --text-strong:var(--white);
+  --text-body:var(--ink-200);
+  --text-muted:var(--ink-400);
+  --text-inverse:var(--black);
+  --text-accent:var(--gold-400);
+  --surface-page:var(--black);
+  --surface-raised:var(--ink-900);
+  --surface-card:var(--ink-900);
+  --surface-inverse:var(--white);
+  --border-subtle:var(--ink-700);
+  --border-strong:var(--ink-200);
+}
+
+/* Program theme scopes — set brand accent per event surface. */
+[data-brand="empire"]{--accent:var(--empire-600);--accent-strong:var(--empire-500);--focus-ring:var(--empire-500);--surface-hero:var(--empire-900);}
+[data-brand="deal"]{--accent:var(--gold-event);--accent-strong:var(--gold-400);--focus-ring:var(--gold-event);--surface-hero:var(--deal-900);}
+[data-brand="house"]{--accent:var(--gold-500);--accent-strong:var(--gold-600);--surface-hero:var(--true-black);}

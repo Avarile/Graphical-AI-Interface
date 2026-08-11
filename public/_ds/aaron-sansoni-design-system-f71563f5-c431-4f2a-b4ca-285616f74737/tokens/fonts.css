@@ -1,0 +1,10 @@
+/* Futura PT — the single brand typeface for Aaron Sansoni Group.
+   Full upright weight ramp Light→Heavy, plus Book oblique for the rare italic. */
+@font-face{font-family:"Futura PT";font-weight:300;font-style:normal;font-display:swap;src:url("../assets/fonts/FuturaPTLight.otf") format("opentype");}
+@font-face{font-family:"Futura PT";font-weight:400;font-style:normal;font-display:swap;src:url("../assets/fonts/FuturaPTBook.otf") format("opentype");}
+@font-face{font-family:"Futura PT";font-weight:400;font-style:italic;font-display:swap;src:url("../assets/fonts/FuturaPTBookOblique.otf") format("opentype");}
+@font-face{font-family:"Futura PT";font-weight:500;font-style:normal;font-display:swap;src:url("../assets/fonts/FuturaPTMedium.otf") format("opentype");}
+@font-face{font-family:"Futura PT";font-weight:600;font-style:normal;font-display:swap;src:url("../assets/fonts/FuturaPTDemi.otf") format("opentype");}
+@font-face{font-family:"Futura PT";font-weight:700;font-style:normal;font-display:swap;src:url("../assets/fonts/FuturaPTBold.otf") format("opentype");}
+@font-face{font-family:"Futura PT";font-weight:800;font-style:normal;font-display:swap;src:url("../assets/fonts/FuturaPTExtraBold.otf") format("opentype");}
+@font-face{font-family:"Futura PT";font-weight:900;font-style:normal;font-display:swap;src:url("../assets/fonts/FuturaPTHeavy.otf") format("opentype");}
